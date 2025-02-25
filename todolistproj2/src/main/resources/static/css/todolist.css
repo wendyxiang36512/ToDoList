@@ -1,0 +1,10 @@
+/* Overdue tasks will have a red strikethrough */
+.overdue td {
+    text-decoration: line-through;
+    color: red;
+}
+
+/* Table styles for better readability */
+.table-striped tbody tr:hover {
+    background-color: #f8d7da; /* Light red background on hover */
+}

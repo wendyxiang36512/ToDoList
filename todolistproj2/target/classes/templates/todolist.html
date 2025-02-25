@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ToDoList</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/css/todolist.css"> <!-- NEW CSS FILE -->
+</head>
+<body>
+
+<!-- Navigation Bar -->
+<nav class="navbar navbar-expand-lg bg-body-tertiary">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">ToDoList</a>
+
+        <!-- User Dropdown with Profile Image & Logout -->
+        <div class="dropdown">
+            <div class="d-flex align-items-center dropdown-toggle" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false" style="cursor: pointer;">
+                <img id="profileImage" src="/images/image.png" class="rounded-circle me-2" width="40" height="40" alt="User">
+                <span class="me-2" th:text="'Welcome, ' + ${user.username}"></span>
+            </div>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                <li><a class="dropdown-item" href="/profile">Profile</a></li>
+                <li><a class="dropdown-item" href="#" id="logoutBtn">Logout</a></li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- Main Content Area -->
+<div class="container mt-4">
+
+    <!-- Form for Adding a New To-Do Task -->
+    <div class="card p-4">
+        <h4>Add a New Task</h4>
+        <div class="row">
+            <div class="col-md-5">
+                <input type="text" id="todoInput" class="form-control" placeholder="Enter a to-do item">
+            </div>
+            <div class="col-md-4">
+                <input type="date" id="deadlineInput" class="form-control">
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-primary w-100" id="addTodoBtn">Add Task</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ToDo List Display -->
+    <div class="mt-4">
+        <h4>Your To-Do List</h4>
+        <table class="table table-striped">
+            <thead>
+            <tr>
+                <th>Task</th>
+                <th>Deadline</th>
+                <th>Actions</th>
+            </tr>
+            </thead>
+            <tbody id="todoList">
+            <!-- ToDo items will be loaded here -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    const API_URL = "http://localhost:8080/todos"; // Matches your ToDoController
+
+
+    document.addEventListener("DOMContentLoaded", loadToDos);
+    document.getElementById('addTodoBtn').addEventListener('click', addToDo);
+
+    function loadToDos() {
+        fetch(API_URL)
+            .then(response => response.json())
+            .then(data => {
+                const todoList = document.getElementById('todoList');
+                todoList.innerHTML = "";
+                data.forEach(todo => addToDoToTable(todo));
+            })
+            .catch(error => console.error("Error loading todos:", error));
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        loadToDos();
+        //loadUserInfo(); // 新增用户信息加载
+    });
+
+    // 新增用户信息获取函数
+
+    function addToDo() {
+        const todoInput = document.getElementById('todoInput');
+        const deadlineInput = document.getElementById('deadlineInput');
+        const task = todoInput.value.trim();
+        const deadline = deadlineInput.value;
+
+        if (task !== "" && deadline !== "") {
+            fetch(API_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ task, deadline })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    addToDoToTable(data);
+                    todoInput.value = "";
+                    deadlineInput.value = "";
+                })
+                .catch(error => console.error("Error adding todo:", error));
+        } else {
+            alert("Please enter both a task and a deadline.");
+        }
+    }
+
+    function addToDoToTable(todo) {
+        const todoList = document.getElementById('todoList');
+        if (!todoList) return;
+
+        const listItem = document.createElement('tr');
+
+        const taskCell = document.createElement('td');
+        taskCell.textContent = todo.task;
+
+        const deadlineCell = document.createElement('td');
+        deadlineCell.textContent = todo.deadline;
+
+        const actionsCell = document.createElement('td');
+        actionsCell.classList.add('d-flex', 'gap-2');
+
+        const editBtn = document.createElement('button');
+        editBtn.classList.add('btn', 'btn-primary', 'btn-sm');
+        editBtn.textContent = 'Edit';
+        editBtn.addEventListener('click', () => editToDo(todo.id, taskCell, deadlineCell));
+
+        const deleteBtn = document.createElement('button');
+        deleteBtn.classList.add('btn', 'btn-danger', 'btn-sm');
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.addEventListener('click', () => deleteToDo(todo.id, listItem));
+
+        actionsCell.appendChild(editBtn);
+        actionsCell.appendChild(deleteBtn);
+        listItem.appendChild(taskCell);
+        listItem.appendChild(deadlineCell);
+        listItem.appendChild(actionsCell);
+
+        // Check if the task deadline has passed and apply strikethrough
+        const today = new Date().toISOString().split("T")[0]; // Get today's date in YYYY-MM-DD format
+        if (todo.deadline < today) {
+            listItem.classList.add("overdue");
+        }
+
+        todoList.appendChild(listItem);
+    }
+
+    function editToDo(id, taskCell, deadlineCell) {
+        const newTask = prompt("Edit your task:", taskCell.textContent);
+        const newDeadline = prompt("Edit your deadline:", deadlineCell.textContent);
+
+        if (newTask && newDeadline) {
+            fetch(`${API_URL}/${id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ task: newTask, deadline: newDeadline })
+            })
+                .then(response => response.json())
+                .then(data => {
+                    taskCell.textContent = data.task;
+                    deadlineCell.textContent = data.deadline;
+                })
+                .catch(error => console.error("Error updating todo:", error));
+        }
+    }
+
+    function deleteToDo(id, listItem) {
+        fetch(`${API_URL}/${id}`, { method: "DELETE" })
+            .then(() => listItem.remove())
+            .catch(error => console.error("Error deleting todo:", error));
+    }
+
+    // click profile
+
+    document.getElementById("profileImage").addEventListener("click", function() {
+        window.location.href = "/profile";
+    });
+
+    // Logout function: Ends session and redirects to login
+    document.getElementById("logoutBtn").addEventListener("click", function(event) {
+        event.preventDefault(); // Prevents default link behavior
+
+        fetch("/logout", { method: "POST" }) // Call logout endpoint
+            .then(() => {
+                window.location.href = "index.html"; // Redirect to login page
+            })
+            .catch(error => console.error("Error logging out:", error));
+    });
+
+
+</script>
+
+</body>
+</html>
